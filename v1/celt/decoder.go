@@ -1035,7 +1035,7 @@ func (d *Celt) DecodeAllocation(rd *comm.RangeDecoder, bandStart, bandEnd int) {
 
 	for i := 0; i < MAX_BANDS; i++ {
 		if i < len(staticCaps) && i < len(FREQ_RANGE) {
-			caps[i] = (staticCaps[i] + 64) * FREQ_RANGE[i] << scale >> 2
+			caps[i] = int32((staticCaps[i] + 64) * FREQ_RANGE[i] << scale >> 2)
 		}
 	}
 
@@ -1057,8 +1057,8 @@ func (d *Celt) DecodeAllocation(rd *comm.RangeDecoder, bandStart, bandEnd int) {
 			if !add {
 				break
 			}
-			boost[i] += quanta
-			boostSize += quanta
+			boost[i] += int32(quanta)
+			boostSize += int(quanta)
 			bandDynalloc = 1
 		}
 
@@ -1088,7 +1088,7 @@ func (d *Celt) DecodeAllocation(rd *comm.RangeDecoder, bandStart, bandEnd int) {
 	intensityStereoBit := 0
 	dualStereoBit := 0
 	if d.stereo_pkt {
-		intensityStereo := LOG2_FRAC[band.end-band.start]
+		intensityStereo := int(LOG2_FRAC[band.end-band.start])
 		if intensityStereo <= available {
 			available -= intensityStereo
 			intensityStereoBit = intensityStereo
@@ -1101,30 +1101,30 @@ func (d *Celt) DecodeAllocation(rd *comm.RangeDecoder, bandStart, bandEnd int) {
 
 	for i := band.start; i < band.end; i++ {
 		trim := allocTrim - (5 + d.lm)
-		rangeVal := FREQ_RANGE[i] * (band.end - i - 1)
+		rangeVal := int32(FREQ_RANGE[i]) * int32(band.end-i-1)
 		lm := d.lm + 3
 		stereoScale := lm
 		if d.stereo_pkt {
 			stereoScale++
 		}
-		stereoThreshold := 0
+		var stereoThreshold int32 = 0
 		if d.stereo_pkt {
 			stereoThreshold = 1 << 8
 		}
 
-		threshold[i] = (3 * FREQ_RANGE[i] << lm) >> 4
+		threshold[i] = int32((3 * FREQ_RANGE[i] << lm) >> 4)
 		if threshold[i] < stereoThreshold {
 			threshold[i] = stereoThreshold
 		}
 
-		trim_offset[i] = trim * (rangeVal << stereoScale) >> 6
+		trim_offset[i] = int32(trim) * (rangeVal << stereoScale) >> 6
 
 		if FREQ_RANGE[i]<<d.lm == 1 {
 			trim_offset[i] -= stereoThreshold
 		}
 	}
 
-	codedChannelBits := 1
+	var codedChannelBits int32 = 1
 	if d.stereo_pkt {
 		codedChannelBits = 2
 	}
@@ -1135,10 +1135,10 @@ func (d *Celt) DecodeAllocation(rd *comm.RangeDecoder, bandStart, bandEnd int) {
 	for low <= high {
 		center := (low + high) / 2
 		done := false
-		total := 0
+		var total int32 = 0
 
 		for i := band.end - 1; i >= band.start; i-- {
-			bandBits := (FREQ_RANGE[i] * STATIC_ALLOC[center][i])
+			bandBits := int32(FREQ_RANGE[i] * STATIC_ALLOC[center][i])
 			if d.stereo_pkt {
 				bandBits <<= 1
 			}
@@ -1168,7 +1168,7 @@ func (d *Celt) DecodeAllocation(rd *comm.RangeDecoder, bandStart, bandEnd int) {
 			}
 		}
 
-		if total > available {
+		if total > int32(available) {
 			high = center - 1
 		} else {
 			low = center + 1
@@ -1178,12 +1178,12 @@ func (d *Celt) DecodeAllocation(rd *comm.RangeDecoder, bandStart, bandEnd int) {
 	high = low
 	low = high - 1
 
-	var bits1 [MAX_BANDS]int
-	var bits2 [MAX_BANDS]int
+	var bits1 [MAX_BANDS]int32
+	var bits2 [MAX_BANDS]int32
 	skipStartband := band.start
 
-	bitsEstimation := func(idx, i int) int {
-		bits := (FREQ_RANGE[i] * STATIC_ALLOC[idx][i])
+	bitsEstimation := func(idx, i int) int32 {
+		bits := int32(FREQ_RANGE[i] * STATIC_ALLOC[idx][i])
 		if d.stereo_pkt {
 			bits <<= 1
 		}
@@ -1221,9 +1221,9 @@ func (d *Celt) DecodeAllocation(rd *comm.RangeDecoder, bandStart, bandEnd int) {
 	high = 1 << ALLOC_STEPS
 
 	for step := 0; step < ALLOC_STEPS; step++ {
-		center := (low + high) / 2
+		center := int32((low + high) / 2)
 		done := false
-		total := 0
+		var total int32 = 0
 
 		for j := band.end - 1; j >= band.start; j-- {
 			bits := bits1[j] + (center * bits2[j] >> ALLOC_STEPS)
@@ -1240,17 +1240,17 @@ func (d *Celt) DecodeAllocation(rd *comm.RangeDecoder, bandStart, bandEnd int) {
 			}
 		}
 
-		if total > available {
-			high = center
+		if total > int32(available) {
+			high = int(center)
 		} else {
-			low = center
+			low = int(center)
 		}
 	}
 
 	done := false
 	total := 0
 	for i := band.end - 1; i >= band.start; i-- {
-		bits := bits1[i] + (low * bits2[i] >> ALLOC_STEPS)
+		bits := bits1[i] + (int32(low) * bits2[i] >> ALLOC_STEPS)
 
 		if bits < threshold[i] && !done {
 			if bits >= codedChannelBits {
@@ -1266,7 +1266,7 @@ func (d *Celt) DecodeAllocation(rd *comm.RangeDecoder, bandStart, bandEnd int) {
 			bits = caps[i]
 		}
 		d.pulses[i] = bits
-		total += bits
+		total += int(bits)
 	}
 
 	codedband := band.end
@@ -1278,14 +1278,14 @@ bandsLoop:
 			break bandsLoop
 		}
 
-		bandDelta := FREQ_BANDS[j+1] - FREQ_BANDS[band.start]
+		bandDelta := int32(FREQ_BANDS[j+1] - FREQ_BANDS[band.start])
 		remaining := available - total
-		bits := remaining / bandDelta
-		remaining -= bits * bandDelta
+		bits := int32(remaining) / bandDelta
+		remaining -= int(bits * bandDelta)
 
-		allocation := d.pulses[j] + bits*FREQ_BANDS[j]
-		if remaining-bandDelta > 0 {
-			allocation += remaining - bandDelta
+		allocation := d.pulses[j] + bits*int32(FREQ_BANDS[j])
+		if remaining-int(bandDelta) > 0 {
+			allocation += int32(remaining) - bandDelta
 		}
 
 		minVal := codedChannelBits
