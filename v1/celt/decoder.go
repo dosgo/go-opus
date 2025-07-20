@@ -1381,6 +1381,7 @@ func (c *Celt) DecodeAllocation(rd *comm.RangeDecoder, bandStart, bandEnd int) {
 	fmt.Printf("remaining %d\n", remaining)
 
 	var extrabits int32 = 0
+	var FINE_OFFSET int32 = 21
 
 	for i := bandStart; i < bandEnd; i++ {
 		n := FREQ_RANGE[i] << c.lm
@@ -1406,8 +1407,8 @@ func (c *Celt) DecodeAllocation(rd *comm.RangeDecoder, bandStart, bandEnd int) {
 			}
 
 			duration := c.lm << 3
-			dof_channels := dof * (LOG_FREQ_RANGE[i] + duration)
-			offset := (dof_channels >> 1) - dof*FINE_OFFSET
+			dof_channels := int(dof) * (int(LOG_FREQ_RANGE[i]) + duration)
+			offset := (dof_channels >> 1) - int(int32(dof)*FINE_OFFSET)
 
 			if n == 2 {
 				offset += dof << 1
