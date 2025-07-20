@@ -1031,6 +1031,7 @@ func (c *Celt) DecodeAllocation(rd *comm.RangeDecoder, bandStart, bandEnd int) {
 	if rd.Available() > 4 {
 		spread = rd.DecodeICDF(MODEL_SPREAD)
 	}
+	fmt.Sprintf("eee:%+v\r\n", spread)
 
 	staticCaps := STATIC_CAPS[c.lm][boolToInt(c.stereo_pkt)]
 
@@ -1303,12 +1304,12 @@ func (c *Celt) DecodeAllocation(rd *comm.RangeDecoder, bandStart, bandEnd int) {
 		band_delta := FREQ_BANDS[codedband] - FREQ_BANDS[bandStart]
 		remaining := int32(available) - total
 
-		bits := remaining / band_delta
-		remaining -= bits * band_delta
+		bits := remaining / int32(band_delta)
+		remaining -= bits * int32(band_delta)
 
-		allocation := c.pulses[j] + bits*FREQ_RANGE[j]
-		if remaining-band_delta > 0 {
-			allocation += remaining - band_delta
+		allocation := c.pulses[j] + bits*int32(FREQ_RANGE[j])
+		if remaining-int32(band_delta) > 0 {
+			allocation += remaining - int32(band_delta)
 		}
 
 		minAlloc := coded_channel_bits
@@ -1324,12 +1325,12 @@ func (c *Celt) DecodeAllocation(rd *comm.RangeDecoder, bandStart, bandEnd int) {
 			allocation -= 1 << 3
 		}
 
-		total -= int(c.pulses[j])
+		total -= int32(c.pulses[j])
 
 		if intensity_stereo_bit != 0 {
-			total -= intensity_stereo_bit
+			total -= int32(intensity_stereo_bit)
 			intensity_stereo_bit = int(LOG2_FRAC[j-bandStart])
-			total += intensity_stereo_bit
+			total += int32(intensity_stereo_bit)
 		}
 
 		if allocation >= coded_channel_bits {
@@ -1338,7 +1339,7 @@ func (c *Celt) DecodeAllocation(rd *comm.RangeDecoder, bandStart, bandEnd int) {
 			c.pulses[j] = 0
 		}
 
-		total += int(c.pulses[j])
+		total += int32(c.pulses[j])
 
 		fmt.Printf("band skip total %d\n", total)
 	}
@@ -1362,15 +1363,15 @@ func (c *Celt) DecodeAllocation(rd *comm.RangeDecoder, bandStart, bandEnd int) {
 	)
 
 	band_delta := FREQ_BANDS[codedband] - FREQ_BANDS[bandStart]
-	remaining := available - total
-	bits := remaining / band_delta
-	remaining -= bits * band_delta
+	remaining := int32(available) - total
+	bits := remaining / int32(band_delta)
+	remaining -= bits * int32(band_delta)
 
 	for i := bandStart; i < bandEnd; i++ {
-		freq_range := FREQ_RANGE[i]
+		freq_range := int32(FREQ_RANGE[i])
 		remainingBits := remaining
-		if remainingBits > int(freq_range) {
-			remainingBits = int(freq_range)
+		if remainingBits > freq_range {
+			remainingBits = freq_range
 		}
 
 		c.pulses[i] += bits*freq_range + remainingBits
@@ -1379,7 +1380,7 @@ func (c *Celt) DecodeAllocation(rd *comm.RangeDecoder, bandStart, bandEnd int) {
 
 	fmt.Printf("remaining %d\n", remaining)
 
-	extrabits := 0
+	var extrabits int32 = 0
 
 	for i := bandStart; i < bandEnd; i++ {
 		n := FREQ_RANGE[i] << c.lm
