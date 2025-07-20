@@ -146,14 +146,58 @@ var BETA_COEF = []float32{
 	1.0 - 6554.0/32768.0,
 }
 
-var COARSE_ENERGY_INTRA = [][2]uint8{
-	{24, 179}, {48, 138}, {54, 135}, {54, 132}, {53, 134}, {56, 133}, {55, 132}, {55, 132}, {61, 114}, {70, 96},
-	{74, 88}, {75, 88}, {87, 74}, {89, 66}, {91, 67}, {100, 59}, {108, 50}, {120, 40}, {122, 37}, {97, 43}, {78, 50},
+var COARSE_ENERGY_INTRA = [][]uint8{
+	// 120-samples
+	{
+		24, 179, 48, 138, 54, 135, 54, 132, 53, 134, 56, 133, 55, 132, 55, 132,
+		61, 114, 70, 96, 74, 88, 75, 88, 87, 74, 89, 66, 91, 67, 100, 59,
+		108, 50, 120, 40, 122, 37, 97, 43, 78, 50,
+	},
+	// 240-samples
+	{
+		23, 178, 54, 115, 63, 102, 66, 98, 69, 99, 74, 89, 71, 91, 73, 91,
+		78, 89, 86, 80, 92, 66, 93, 64, 102, 59, 103, 60, 104, 60, 117, 52,
+		123, 44, 138, 35, 133, 31, 97, 38, 77, 45,
+	},
+	// 480-samples
+	{
+		21, 178, 59, 110, 71, 86, 75, 85, 84, 83, 91, 66, 88, 73, 87, 72,
+		92, 75, 98, 72, 105, 58, 107, 54, 115, 52, 114, 55, 112, 56, 129, 51,
+		132, 40, 150, 33, 140, 29, 98, 35, 77, 42,
+	},
+	// 960-samples
+	{
+		22, 178, 63, 114, 74, 82, 84, 83, 92, 82, 103, 62, 96, 72, 96, 67,
+		101, 73, 107, 72, 113, 55, 118, 52, 125, 52, 118, 52, 117, 55, 135, 49,
+		137, 39, 157, 32, 145, 29, 97, 33, 77, 40,
+	},
 }
 
-var COARSE_ENERGY_INTER = [][2]uint8{
-	{72, 127}, {65, 129}, {66, 128}, {65, 128}, {64, 128}, {62, 128}, {64, 128}, {64, 128}, {92, 78}, {92, 79},
-	{92, 78}, {90, 79}, {116, 41}, {115, 40}, {114, 40}, {132, 26}, {132, 26}, {145, 17}, {161, 12}, {176, 10}, {177, 11},
+var COARSE_ENERGY_INTER = [][]uint8{
+	// 120-samples
+	{
+		72, 127, 65, 129, 66, 128, 65, 128, 64, 128, 62, 128, 64, 128, 64, 128,
+		92, 78, 92, 79, 92, 78, 90, 79, 116, 41, 115, 40, 114, 40, 132, 26,
+		132, 26, 145, 17, 161, 12, 176, 10, 177, 11,
+	},
+	// 240-samples
+	{
+		83, 78, 84, 81, 88, 75, 86, 74, 87, 71, 90, 73, 93, 74, 93, 74,
+		109, 40, 114, 36, 117, 34, 117, 34, 143, 17, 145, 18, 146, 19, 162, 12,
+		165, 10, 178, 7, 189, 6, 190, 8, 177, 9,
+	},
+	// 480-samples
+	{
+		61, 90, 93, 60, 105, 42, 107, 41, 110, 45, 116, 38, 113, 38, 112, 38,
+		124, 26, 132, 27, 136, 19, 140, 20, 155, 14, 159, 16, 158, 18, 170, 13,
+		177, 10, 187, 8, 192, 6, 175, 9, 159, 10,
+	},
+	// 960-samples
+	{
+		42, 121, 96, 66, 108, 43, 111, 40, 117, 44, 123, 32, 120, 36, 119, 33,
+		127, 33, 134, 34, 139, 21, 147, 23, 152, 20, 158, 25, 154, 26, 166, 21,
+		173, 16, 184, 13, 184, 10, 150, 13, 139, 15,
+	},
 }
 
 var STATIC_CAPS = [][][]uint8{
@@ -818,16 +862,17 @@ func (c *Celt) ParsePostfilter(rd *comm.RangeDecoder) {
 // DecodeCoarseEnergy 方法
 func (c *Celt) DecodeCoarseEnergy(rd *comm.RangeDecoder, bandStart, bandEnd int) {
 	var alpha, beta float32
-	var model [][]float32
+	var model []uint8
 
-	if rd.Available() > 3 && rd.DecodeLogP(3) != 0 {
+	if rd.Available() > 3 && rd.DecodeLogP(3) {
 		alpha = 0.0
 		beta = 1.0 - 4915.0/32768.0
-		model = COARSE_ENERGY_INTRA
+		model = COARSE_ENERGY_INTRA[c.lm]
 	} else {
 		alpha = ALPHA_COEF[c.lm]
 		beta = BETA_COEF[c.lm]
-		model = COARSE_ENERGY_INTER
+		model = COARSE_ENERGY_INTER[c.lm]
+
 	}
 
 	fmt.Printf("model %.6f %.6f\n", alpha, beta)
@@ -855,7 +900,7 @@ func (c *Celt) DecodeCoarseEnergy(rd *comm.RangeDecoder, bandStart, bandEnd int)
 				}
 				k <<= 1 // k * 2
 
-				v := float32(rd.DecodeLaplace(int(model[k][0]*128), int(model[k+1][0]*64)))
+				v := float32(rd.DecodeLaplace(int(model[k]<<7), int(model[k+1]<<6)))
 				fmt.Printf("decode_laplace %.6f <- %d %d\n", v, i, k)
 				value = v
 			} else if available >= 1 {
@@ -931,7 +976,7 @@ func (c *Celt) DecodeTfChanges(rd *comm.RangeDecoder, bandStart, bandEnd int, tr
 	for i := bandStart; i < bandEnd; i++ {
 		if available > fieldBits+boolToInt(selectBit) {
 			// 模拟 diff ^= rd.decode_logp(field_bits)
-			if rd.DecodeLogP(fieldBits) != 0 {
+			if rd.DecodeLogP(fieldBits) {
 				diff = !diff
 			}
 			fmt.Printf("band %d bits %d %t\n", i, fieldBits, diff)
@@ -947,7 +992,7 @@ func (c *Celt) DecodeTfChanges(rd *comm.RangeDecoder, bandStart, bandEnd int, tr
 	if selectBit {
 		changedInt := boolToInt(changed)
 		if tfSelect[0][changedInt] != tfSelect[1][changedInt] {
-			if rd.DecodeLogP(1) != 0 {
+			if rd.DecodeLogP(1) {
 				selectIdx = 1
 			}
 		}
@@ -1107,10 +1152,10 @@ func (c *Celt) DecodeAllocation(rd *comm.RangeDecoder, bandStart, bandEnd int) {
 	for low <= high {
 		center := (low + high) / 2
 		done := false
-		total := 0
+		var total int32 = 0
 
 		for i := bandEnd - 1; i >= bandStart; i-- {
-			bandbits := (FREQ_RANGE[i] * STATIC_ALLOC[center][i]) << c.lm >> 2
+			bandbits := int32((FREQ_RANGE[i] * STATIC_ALLOC[center][i]) << c.lm >> 2)
 			if c.stereo_pkt {
 				bandbits <<= 1
 			}
@@ -1125,7 +1170,7 @@ func (c *Celt) DecodeAllocation(rd *comm.RangeDecoder, bandStart, bandEnd int) {
 			}
 			bandbits += boost[i]
 
-			if bandbits >= uint8(threshold[i]) || done {
+			if bandbits >= threshold[i] || done {
 				done = true
 				if bandbits > caps[i] {
 					total += caps[i]
@@ -1141,7 +1186,7 @@ func (c *Celt) DecodeAllocation(rd *comm.RangeDecoder, bandStart, bandEnd int) {
 			fmt.Printf("total %d %d\n", total, available)
 		}
 
-		if total > available {
+		if total > int32(available) {
 			high = center - 1
 		} else {
 			low = center + 1
@@ -1172,8 +1217,8 @@ func (c *Celt) DecodeAllocation(rd *comm.RangeDecoder, bandStart, bandEnd int) {
 			return bits
 		}
 
-		bits1[i] = bits_estimation(low)
-		bits2[i] = bits_estimation(high) - bits1[i]
+		bits1[i] = int32(bits_estimation(low))
+		bits2[i] = int32(bits_estimation(high)) - bits1[i]
 		if bits2[i] < 0 {
 			bits2[i] = 0
 		}
@@ -1195,26 +1240,26 @@ func (c *Celt) DecodeAllocation(rd *comm.RangeDecoder, bandStart, bandEnd int) {
 	for i := 0; i < ALLOC_STEPS; i++ {
 		center := (low + high) / 2
 		done := false
-		total := 0
+		var total int32 = 0
 
 		for j := bandEnd - 1; j >= bandStart; j-- {
-			bits := bits1[j] + (center * bits2[j] >> ALLOC_STEPS)
+			bits := bits1[j] + (int32(center) * bits2[j] >> ALLOC_STEPS)
 
 			if bits >= threshold[j] || done {
 				done = true
 				if bits > caps[j] {
-					total += int(caps[j])
+					total += int32(caps[j])
 				} else {
 					total += bits
 				}
 			} else {
 				if bits >= coded_channel_bits {
-					total += int(coded_channel_bits)
+					total += int32(coded_channel_bits)
 				}
 			}
 		}
 
-		if total > available {
+		if total > int32(available) {
 			high = center
 		} else {
 			low = center
@@ -1222,9 +1267,9 @@ func (c *Celt) DecodeAllocation(rd *comm.RangeDecoder, bandStart, bandEnd int) {
 	}
 
 	done := false
-	total := 0
+	var total int32 = 0
 	for i := bandEnd - 1; i >= bandStart; i-- {
-		bits := bits1[i] + (low * bits2[i] >> ALLOC_STEPS)
+		bits := bits1[i] + (int32(low) * bits2[i] >> ALLOC_STEPS)
 
 		if bits >= threshold[i] || done {
 			done = true
@@ -1256,7 +1301,7 @@ func (c *Celt) DecodeAllocation(rd *comm.RangeDecoder, bandStart, bandEnd int) {
 		}
 
 		band_delta := FREQ_BANDS[codedband] - FREQ_BANDS[bandStart]
-		remaining := available - total
+		remaining := int32(available) - total
 
 		bits := remaining / band_delta
 		remaining -= bits * band_delta
