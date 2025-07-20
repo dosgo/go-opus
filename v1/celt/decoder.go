@@ -1013,61 +1013,56 @@ func boolToInt(b bool) int {
 	return 0
 }
 
-func (c *Celt) DecodeAllocation(rd *comm.RangeDecoder, bandStart, bandEnd int) {
-	caps := make([]int32, MAX_BANDS)
-	threshold := make([]int32, MAX_BANDS)
-	trimOffset := make([]int32, MAX_BANDS)
-	boost := make([]int32, MAX_BANDS)
-	bits1 := make([]int32, MAX_BANDS)
-	bits2 := make([]int32, MAX_BANDS)
+func (d *Celt) DecodeAllocation(rd *comm.RangeDecoder, bandStart, bandEnd int) {
+	band := struct{ start, end int }{bandStart, bandEnd}
+	var caps [MAX_BANDS]int32
+	var threshold [MAX_BANDS]int32
+	var trim_offset [MAX_BANDS]int32
+	var boost [MAX_BANDS]int32
 
-	scale := c.lm
-	if c.stereo_pkt {
+	scale := d.lm
+	if d.stereo_pkt {
 		scale++
 	}
-	skipStartband := bandStart
 
 	spread := SPREAD_NORMAL
 	if rd.Available() > 4 {
 		spread = rd.DecodeICDF(MODEL_SPREAD)
 	}
-	fmt.Sprintf("eee:%+v\r\n", spread)
+	_ = spread // 根据实际需要使用
 
-	staticCaps := STATIC_CAPS[c.lm][boolToInt(c.stereo_pkt)]
+	staticCaps := STATIC_CAPS[d.lm][boolToInt(d.stereo_pkt)]
 
 	for i := 0; i < MAX_BANDS; i++ {
-		staticCap := staticCaps[i]
-		freqRange := FREQ_RANGE[i]
-		caps[i] = int32((staticCap + 64) * freqRange << scale >> 2)
+		if i < len(staticCaps) && i < len(FREQ_RANGE) {
+			caps[i] = (staticCaps[i] + 64) * FREQ_RANGE[i] << scale >> 2
+		}
 	}
-
-	fmt.Printf("caps %#v\n", caps[:bandEnd])
 
 	dynalloc := 6
 	boostSize := 0
 
-	fmt.Printf("consumed %d\n", rd.TellFrac())
-
-	for i := bandStart; i < bandEnd; i++ {
-		quanta := int32(FREQ_RANGE[i] << scale)
-		if quanta > 6<<3 {
-			quanta = 6 << 3
+	for i := band.start; i < band.end; i++ {
+		quanta := FREQ_RANGE[i] << scale
+		if quanta<<3 > quanta {
+			if quanta > 6<<3 {
+				quanta = 6 << 3
+			} else {
+				quanta = quanta << 3
+			}
 		}
-		if quanta > int32(FREQ_RANGE[i]) {
-			quanta = int32(FREQ_RANGE[i])
-		}
-
 		bandDynalloc := dynalloc
 		for (bandDynalloc<<3)+boostSize < rd.AvailableFrac() && boost[i] < caps[i] {
-			if !rd.DecodeLogP(bandDynalloc) {
+			add := rd.DecodeLogP(bandDynalloc)
+			if !add {
 				break
 			}
 			boost[i] += quanta
-			boostSize += int(quanta)
+			boostSize += quanta
 			bandDynalloc = 1
 		}
 
-		if boost[i] > 0 && dynalloc > 2 {
+		if boost[i] != 0 && dynalloc > 2 {
 			dynalloc--
 		}
 	}
@@ -1077,154 +1072,138 @@ func (c *Celt) DecodeAllocation(rd *comm.RangeDecoder, bandStart, bandEnd int) {
 		allocTrim = rd.DecodeICDF(ALLOC_TRIM)
 	}
 
-	fmt.Printf("alloc_trim %d\n", allocTrim)
-
 	available := rd.AvailableFrac() - 1
-	c.anticollapse_bit = 0
-	if c.blocks > 1 && c.lm >= 2 && available >= (c.lm+2)<<3 {
-		c.anticollapse_bit = 1 << 3
+	d.anticollapse_bit = 0
+	if d.blocks > 1 && d.lm >= 2 && available >= (d.lm+2)<<3 {
 		available -= 1 << 3
+		d.anticollapse_bit = 1 << 3
 	}
 
-	fmt.Printf("anticollapse_bit %d\n", c.anticollapse_bit)
-
-	skip_bit := 0
+	skipBit := 0
 	if available >= 1<<3 {
-		skip_bit = 1 << 3
 		available -= 1 << 3
+		skipBit = 1 << 3
 	}
 
-	fmt.Printf("skip_bit %d\n", skip_bit)
-
-	intensity_stereo_bit := 0
-	dual_stereo_bit := 0
-	if c.stereo_pkt {
-		intensity_stereo_bit = int(LOG2_FRAC[bandEnd-bandStart])
-		if intensity_stereo_bit <= available {
-			available -= intensity_stereo_bit
+	intensityStereoBit := 0
+	dualStereoBit := 0
+	if d.stereo_pkt {
+		intensityStereo := LOG2_FRAC[band.end-band.start]
+		if intensityStereo <= available {
+			available -= intensityStereo
+			intensityStereoBit = intensityStereo
 			if available >= 1<<3 {
-				dual_stereo_bit = 1 << 3
 				available -= 1 << 3
+				dualStereoBit = 1 << 3
 			}
-		} else {
-			intensity_stereo_bit = 0
 		}
 	}
 
-	fmt.Printf("intensity_stereo_bit %d\n", intensity_stereo_bit)
-
-	for i := bandStart; i < bandEnd; i++ {
-		trim := int32(allocTrim - (5 + c.lm))
-		rangeVal := int32(int32(FREQ_RANGE[i]) * int32(bandEnd-i-1))
-		lm := c.lm + 3
-		scale := lm
-		if c.stereo_pkt {
-			scale++
+	for i := band.start; i < band.end; i++ {
+		trim := allocTrim - (5 + d.lm)
+		rangeVal := FREQ_RANGE[i] * (band.end - i - 1)
+		lm := d.lm + 3
+		stereoScale := lm
+		if d.stereo_pkt {
+			stereoScale++
+		}
+		stereoThreshold := 0
+		if d.stereo_pkt {
+			stereoThreshold = 1 << 8
 		}
 
-		var stereo_threshold int32 = 0
-		if c.stereo_pkt {
-			stereo_threshold = 1 << 8
+		threshold[i] = (3 * FREQ_RANGE[i] << lm) >> 4
+		if threshold[i] < stereoThreshold {
+			threshold[i] = stereoThreshold
 		}
 
-		threshold[i] = int32(3 * FREQ_RANGE[i] << lm >> 4)
-		if threshold[i] < stereo_threshold {
-			threshold[i] = stereo_threshold
+		trim_offset[i] = trim * (rangeVal << stereoScale) >> 6
+
+		if FREQ_RANGE[i]<<d.lm == 1 {
+			trim_offset[i] -= stereoThreshold
 		}
-
-		trimOffset[i] = trim * (rangeVal << scale) >> 6
-
-		if FREQ_RANGE[i]<<c.lm == 1 {
-			trimOffset[i] -= stereo_threshold
-		}
-
-		fmt.Printf("trim_offset %d %d\n", i, trimOffset[i])
 	}
 
-	var coded_channel_bits int32 = 0
-	if c.stereo_pkt {
-		coded_channel_bits = 2 << 3
-	} else {
-		coded_channel_bits = 1 << 3
+	codedChannelBits := 1
+	if d.stereo_pkt {
+		codedChannelBits = 2
 	}
+	codedChannelBits <<= 3
 
 	low := 1
 	high := CELT_VECTOR - 1
 	for low <= high {
 		center := (low + high) / 2
 		done := false
-		var total int32 = 0
+		total := 0
 
-		for i := bandEnd - 1; i >= bandStart; i-- {
-			bandbits := int32((FREQ_RANGE[i] * STATIC_ALLOC[center][i]) << c.lm >> 2)
-			if c.stereo_pkt {
-				bandbits <<= 1
+		for i := band.end - 1; i >= band.start; i-- {
+			bandBits := (FREQ_RANGE[i] * STATIC_ALLOC[center][i])
+			if d.stereo_pkt {
+				bandBits <<= 1
 			}
+			bandBits <<= d.lm
+			bandBits >>= 2
 
-			fmt.Printf("bandbits %d\n", bandbits)
-
-			if bandbits > 0 {
-				bandbits += trimOffset[i]
-				if bandbits < 0 {
-					bandbits = 0
+			if bandBits != 0 {
+				bandBits += trim_offset[i]
+				if bandBits < 0 {
+					bandBits = 0
 				}
 			}
-			bandbits += boost[i]
 
-			if bandbits >= threshold[i] || done {
+			bandBits += boost[i]
+
+			if bandBits >= threshold[i] || done {
 				done = true
-				if bandbits > caps[i] {
+				if bandBits > caps[i] {
 					total += caps[i]
 				} else {
-					total += bandbits
+					total += bandBits
 				}
 			} else {
-				if bandbits >= coded_channel_bits {
-					total += coded_channel_bits
+				if bandBits >= codedChannelBits {
+					total += codedChannelBits
 				}
 			}
-
-			fmt.Printf("total %d %d\n", total, available)
 		}
 
-		if total > int32(available) {
+		if total > available {
 			high = center - 1
 		} else {
 			low = center + 1
 		}
-		fmt.Printf("%d %d %d\n", high, low, center)
 	}
-
-	fmt.Printf("high %d low %d\n", high, low)
 
 	high = low
 	low = high - 1
 
-	fmt.Printf("high %d low %d\n", high, low)
+	var bits1 [MAX_BANDS]int
+	var bits2 [MAX_BANDS]int
+	skipStartband := band.start
 
-	for i := bandStart; i < bandEnd; i++ {
-		bits_estimation := func(idx int) int {
-			bits := int((FREQ_RANGE[i] * STATIC_ALLOC[idx][i]) << c.lm >> 2)
-			if c.stereo_pkt {
-				bits <<= 1
-			}
-
-			if bits != 0 {
-				bits += int(trimOffset[i])
-				if bits < 0 {
-					bits = 0
-				}
-			}
-			return bits
+	bitsEstimation := func(idx, i int) int {
+		bits := (FREQ_RANGE[i] * STATIC_ALLOC[idx][i])
+		if d.stereo_pkt {
+			bits <<= 1
 		}
+		bits <<= d.lm
+		bits >>= 2
 
-		bits1[i] = int32(bits_estimation(low))
-		bits2[i] = int32(bits_estimation(high)) - bits1[i]
-		if bits2[i] < 0 {
-			bits2[i] = 0
+		if bits != 0 {
+			bits += trim_offset[i]
+			if bits < 0 {
+				bits = 0
+			}
 		}
+		return bits
+	}
 
-		if boost[i] > 0 {
+	for i := band.start; i < band.end; i++ {
+		bits1[i] = bitsEstimation(low, i)
+		bits2[i] = bitsEstimation(high, i)
+
+		if boost[i] != 0 {
 			if low != 0 {
 				bits1[i] += boost[i]
 			}
@@ -1232,35 +1211,36 @@ func (c *Celt) DecodeAllocation(rd *comm.RangeDecoder, bandStart, bandEnd int) {
 			skipStartband = i
 		}
 
-		fmt.Printf("bits2 %d\n", bits2[i])
+		bits2[i] -= bits1[i]
+		if bits2[i] < 0 {
+			bits2[i] = 0
+		}
 	}
 
 	low = 0
 	high = 1 << ALLOC_STEPS
 
-	for i := 0; i < ALLOC_STEPS; i++ {
+	for step := 0; step < ALLOC_STEPS; step++ {
 		center := (low + high) / 2
 		done := false
-		var total int32 = 0
+		total := 0
 
-		for j := bandEnd - 1; j >= bandStart; j-- {
-			bits := bits1[j] + (int32(center) * bits2[j] >> ALLOC_STEPS)
+		for j := band.end - 1; j >= band.start; j-- {
+			bits := bits1[j] + (center * bits2[j] >> ALLOC_STEPS)
 
 			if bits >= threshold[j] || done {
 				done = true
 				if bits > caps[j] {
-					total += int32(caps[j])
+					total += caps[j]
 				} else {
 					total += bits
 				}
-			} else {
-				if bits >= coded_channel_bits {
-					total += int32(coded_channel_bits)
-				}
+			} else if bits >= codedChannelBits {
+				total += codedChannelBits
 			}
 		}
 
-		if total > int32(available) {
+		if total > available {
 			high = center
 		} else {
 			low = center
@@ -1268,234 +1248,192 @@ func (c *Celt) DecodeAllocation(rd *comm.RangeDecoder, bandStart, bandEnd int) {
 	}
 
 	done := false
-	var total int32 = 0
-	for i := bandEnd - 1; i >= bandStart; i-- {
-		bits := bits1[i] + (int32(low) * bits2[i] >> ALLOC_STEPS)
+	total := 0
+	for i := band.end - 1; i >= band.start; i-- {
+		bits := bits1[i] + (low * bits2[i] >> ALLOC_STEPS)
 
-		if bits >= threshold[i] || done {
-			done = true
-		} else {
-			if bits >= coded_channel_bits {
-				bits = coded_channel_bits
+		if bits < threshold[i] && !done {
+			if bits >= codedChannelBits {
+				bits = codedChannelBits
 			} else {
 				bits = 0
 			}
+		} else {
+			done = true
 		}
 
 		if bits > caps[i] {
 			bits = caps[i]
 		}
-		c.pulses[i] = bits
+		d.pulses[i] = bits
 		total += bits
-
-		fmt.Printf("total %d\n", total)
 	}
 
-	codedband := bandEnd
-	for j := bandEnd - 1; j >= bandStart; j-- {
-		codedband = j + 1
-		fmt.Printf("codedband %d %d\n", codedband, j)
-
+	codedband := band.end
+bandsLoop:
+	for j := band.end - 1; j >= band.start; j-- {
 		if j == skipStartband {
-			available += skip_bit
-			break
+			available += skipBit
+			codedband = j + 1
+			break bandsLoop
 		}
 
-		band_delta := FREQ_BANDS[codedband] - FREQ_BANDS[bandStart]
-		remaining := int32(available) - total
+		bandDelta := FREQ_BANDS[j+1] - FREQ_BANDS[band.start]
+		remaining := available - total
+		bits := remaining / bandDelta
+		remaining -= bits * bandDelta
 
-		bits := remaining / int32(band_delta)
-		remaining -= bits * int32(band_delta)
-
-		allocation := c.pulses[j] + bits*int32(FREQ_RANGE[j])
-		if remaining-int32(band_delta) > 0 {
-			allocation += remaining - int32(band_delta)
+		allocation := d.pulses[j] + bits*FREQ_BANDS[j]
+		if remaining-bandDelta > 0 {
+			allocation += remaining - bandDelta
 		}
 
-		minAlloc := coded_channel_bits
-		if threshold[j] > minAlloc {
-			minAlloc = threshold[j]
+		minVal := codedChannelBits
+		if threshold[j] > minVal {
+			minVal = threshold[j]
 		}
-
-		if allocation >= minAlloc {
+		if allocation >= minVal {
 			if rd.DecodeLogP(1) {
-				break
+				codedband = j + 1
+				break bandsLoop
 			}
 			total += 1 << 3
 			allocation -= 1 << 3
 		}
 
-		total -= int32(c.pulses[j])
-
-		if intensity_stereo_bit != 0 {
-			total -= int32(intensity_stereo_bit)
-			intensity_stereo_bit = int(LOG2_FRAC[j-bandStart])
-			total += int32(intensity_stereo_bit)
+		total -= d.pulses[j]
+		if intensityStereoBit != 0 {
+			total -= intensityStereoBit
+			intensityStereoBit = LOG2_FRAC[j-band.start]
+			total += intensityStereoBit
 		}
 
-		if allocation >= coded_channel_bits {
-			c.pulses[j] = coded_channel_bits
+		if allocation >= codedChannelBits {
+			d.pulses[j] = codedChannelBits
 		} else {
-			c.pulses[j] = 0
+			d.pulses[j] = 0
 		}
-
-		total += int32(c.pulses[j])
-
-		fmt.Printf("band skip total %d\n", total)
+		total += d.pulses[j]
 	}
 
-	c.codedband = codedband
-	c.intensity_stereo = bandStart
-	if intensity_stereo_bit != 0 {
-		c.intensity_stereo = bandStart + rd.DecodeUniform(codedband+1-bandStart)
+	d.intensity_stereo = 0
+	if intensityStereoBit != 0 {
+		d.intensity_stereo = band.start + rd.DecodeUniform(codedband-band.start)
 	}
 
-	c.dual_stereo = false
-	if c.intensity_stereo <= bandStart {
-		available += dual_stereo_bit
-	} else if dual_stereo_bit != 0 {
-		c.dual_stereo = rd.DecodeLogP(1)
+	d.dual_stereo = false
+	if d.intensity_stereo <= band.start {
+		available += dualStereoBit
+	} else if dualStereoBit != 0 {
+		d.dual_stereo = rd.DecodeLogP(1)
 	}
 
-	fmt.Printf(
-		"intensity %d, dual %d\n",
-		c.intensity_stereo, boolToInt(c.dual_stereo),
-	)
+	bandDelta := FREQ_BANDS[codedband] - FREQ_BANDS[band.start]
+	remaining := available - total
+	bandbits := remaining / bandDelta
+	remaining -= bandbits * bandDelta
 
-	band_delta := FREQ_BANDS[codedband] - FREQ_BANDS[bandStart]
-	remaining := int32(available) - total
-	bits := remaining / int32(band_delta)
-	remaining -= bits * int32(band_delta)
-
-	for i := bandStart; i < bandEnd; i++ {
-		freq_range := int32(FREQ_RANGE[i])
-		remainingBits := remaining
-		if remainingBits > freq_range {
-			remainingBits = freq_range
+	for i := band.start; i < band.end; i++ {
+		fr := FREQ_RANGE[i]
+		bits := bandbits * fr
+		if remaining > 0 {
+			if remaining < fr {
+				bits += remaining
+				remaining = 0
+			} else {
+				bits += fr
+				remaining -= fr
+			}
 		}
-
-		c.pulses[i] += bits*freq_range + remainingBits
-		remaining -= remainingBits
+		d.pulses[i] += bits
 	}
 
-	fmt.Printf("remaining %d\n", remaining)
-
-	var extrabits int32 = 0
-	var FINE_OFFSET int32 = 21
-
-	for i := bandStart; i < bandEnd; i++ {
-		n := FREQ_RANGE[i] << c.lm
+	extrabits := 0
+	for i := band.start; i < band.end; i++ {
+		n := FREQ_RANGE[i] << d.lm
 		prevExtra := extrabits
-		c.pulses[i] += extrabits
+		d.pulses[i] += extrabits
 
 		if n > 1 {
-			extrabits = c.pulses[i] - caps[i]
+			extrabits = d.pulses[i] - caps[i]
 			if extrabits < 0 {
 				extrabits = 0
 			}
-			c.pulses[i] -= extrabits
+			d.pulses[i] -= extrabits
 
 			dof := n
-			if c.stereo_pkt {
+			if d.stereo_pkt {
 				dof *= 2
+				if n > 2 && !d.dual_stereo && i < d.intensity_stereo {
+					dof--
+				}
 			}
 
-			dualStereoAdj := 0
-			if c.stereo_pkt && n > 2 && !c.dual_stereo && i < c.intensity_stereo {
-				dof++ // 增加自由度
-				dualStereoAdj = 1
-			}
-
-			duration := c.lm << 3
-			dof_channels := int(dof) * (int(LOG_FREQ_RANGE[i]) + duration)
-			offset := (dof_channels >> 1) - int(int32(dof)*FINE_OFFSET)
+			duration := d.lm << 3
+			dofChannels := dof * (LOG_FREQ_RANGE[i] + duration)
+			offset := (dofChannels >> 1) - dof*FINE_OFFSET
 
 			if n == 2 {
-				offset += dof << 1
+				offset += dof * 2
 			}
 
-			fmt.Printf("dof %d %d %d\n", dof, dof_channels, offset)
-
-			pulse := c.pulses[i] + offset
-			if pulse < 2*dof<<3 {
-				offset += dof_channels >> 2
-			} else if pulse < 3*dof<<3 {
-				offset += dof_channels >> 3
+			pulse := d.pulses[i] + offset
+			if pulse < 2*(dof<<3) {
+				offset += dofChannels >> 2
+			} else if pulse < 3*(dof<<3) {
+				offset += dofChannels >> 3
 			}
 
-			pulse = c.pulses[i] + offset
-
-			fine_bits := (pulse + (dof << 2)) / (dof << 3)
-			fmt.Printf("pulses %d, offset %d\n", c.pulses[i], offset)
-
-			max_bits := c.pulses[i] >> 3
-			if c.stereo_pkt {
-				max_bits >>= 1
+			pulse = d.pulses[i] + offset
+			fineBits := (pulse + (dof << 2)) / (dof << 3)
+			maxBits := d.pulses[i] >> 3
+			if d.stereo_pkt {
+				maxBits >>= 1
 			}
-			if max_bits > MAX_FINE_BITS {
-				max_bits = MAX_FINE_BITS
+			if maxBits > MAX_FINE_BITS {
+				maxBits = MAX_FINE_BITS
 			}
-			if max_bits < 0 {
-				max_bits = 0
+			if fineBits < 0 {
+				fineBits = 0
+			} else if fineBits > maxBits {
+				fineBits = maxBits
 			}
+			d.fine_bits[i] = fineBits
+			d.fine_priority[i] = fineBits*(dof<<3) >= pulse
 
-			if fine_bits < 0 {
-				fine_bits = 0
-			} else if fine_bits > max_bits {
-				fine_bits = max_bits
-			}
-			c.fine_bits[i] = fine_bits
-
-			c.fine_priority[i] = (fine_bits * (dof << 3)) >= pulse
-
-			fmt.Printf("fine_bits %d %d\n", fine_bits, c.fine_bits[i])
-
-			c.pulses[i] -= fine_bits << 3
-			if c.stereo_pkt {
-				c.pulses[i] >>= 1
-			}
+			d.pulses[i] -= fineBits << boolToInt(d.stereo_pkt) << 3
 		} else {
-			extrabits = c.pulses[i] - ((boolToInt(c.stereo_pkt) + 1) << 3)
+			extrabits = d.pulses[i] - boolToInt(d.stereo_pkt)*8 - 8
 			if extrabits < 0 {
 				extrabits = 0
 			}
-			c.pulses[i] -= extrabits
-			c.fine_bits[i] = 0
-			c.fine_priority[i] = true
+			d.pulses[i] -= extrabits
+			d.fine_bits[i] = 0
+			d.fine_priority[i] = true
 		}
 
 		if extrabits > 0 {
-			scale := 1 + boolToInt(c.stereo_pkt) + 2
-			extra_fine := MAX_FINE_BITS - c.fine_bits[i]
-			if extra_fine > extrabits>>scale {
-				extra_fine = extrabits >> scale
+			scale := boolToInt(d.stereo_pkt) + 3
+			extraFine := MAX_FINE_BITS - d.fine_bits[i]
+			if extraFine > extrabits>>scale {
+				extraFine = extrabits >> scale
 			}
-			c.fine_bits[i] += extra_fine
-
-			extra_fine_bits := extra_fine << scale
-			c.fine_priority[i] = extra_fine_bits >= (extrabits - prevExtra)
-
-			extrabits -= extra_fine_bits
+			d.fine_bits[i] += extraFine
+			extraFineBits := extraFine << scale
+			d.fine_priority[i] = extraFineBits >= extrabits-prevExtra
+			extrabits -= extraFineBits
 		}
-
-		fmt.Printf("extrabits %d\n", extrabits)
-		fmt.Printf("fine_bits %d\n", c.fine_bits[i])
 	}
 
-	c.remaining = extrabits
+	d.remaining = extrabits
 
-	for i := codedband; i < bandEnd; i++ {
-		c.fine_bits[i] = c.pulses[i] >> 3
-		if c.stereo_pkt {
-			c.fine_bits[i] >>= 1
-		}
-		c.pulses[i] = 0
-		c.fine_priority[i] = c.fine_bits[i] < 1
-
-		fmt.Printf("fine_bits end %d\n", c.fine_bits[i])
+	for i := codedband; i < band.end; i++ {
+		d.fine_bits[i] = d.pulses[i] >> boolToInt(d.stereo_pkt) >> 3
+		d.pulses[i] = 0
+		d.fine_priority[i] = d.fine_bits[i] < 1
 	}
 
-	c.codedband = codedband
+	d.codedband = codedband
 }
 
 func (c *Celt) DecodeFineEnergy(rd *comm.RangeDecoder, bandStart, bandEnd int) {
