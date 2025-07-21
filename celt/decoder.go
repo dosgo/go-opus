@@ -1362,31 +1362,31 @@ bandsLoop:
 			}
 			d.pulses[i] -= int32(extrabits)
 
-			dof := n
+			var dof int32 = int32(n)
 			if d.stereo_pkt {
 				dof *= 2
 				if n > 2 && !d.dual_stereo && i < d.intensity_stereo {
-					dof--
+					dof++
 				}
 			}
 
 			duration := d.lm << 3
-			dofChannels := int32(dof) * int32(int(LOG_FREQ_RANGE[i])+duration)
-			offset := (dofChannels >> 1) - int32(dof)*FINE_OFFSET
+			dofChannels := dof * int32(int(LOG_FREQ_RANGE[i])+duration)
+			offset := (dofChannels >> 1) - dof*FINE_OFFSET
 
 			if n == 2 {
-				offset += int32(dof) * 2
+				offset += dof * 2
 			}
 
 			pulse := d.pulses[i] + offset
-			if pulse < int32(2*(dof<<3)) {
+			if pulse < 2*(dof<<3) {
 				offset += dofChannels >> 2
-			} else if pulse < int32(3*(dof<<3)) {
+			} else if pulse < 3*(dof<<3) {
 				offset += dofChannels >> 3
 			}
 
 			pulse = d.pulses[i] + offset
-			fineBits := (pulse + int32(dof<<2)) / int32(dof<<3)
+			fineBits := (pulse + dof<<2) / dof << 3
 			maxBits := d.pulses[i] >> 3
 			if d.stereo_pkt {
 				maxBits >>= 1
@@ -1400,7 +1400,7 @@ bandsLoop:
 				fineBits = maxBits
 			}
 			d.fine_bits[i] = fineBits
-			d.fine_priority[i] = fineBits*int32(dof<<3) >= pulse
+			d.fine_priority[i] = fineBits*dof<<3 >= pulse
 
 			d.pulses[i] -= fineBits << boolToInt(d.stereo_pkt) << 3
 		} else {
