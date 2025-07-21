@@ -144,24 +144,15 @@ func (d *Decoder) SendPacket(packetData []byte) error {
 		if opusPkt.Mode != comm.ModeSilk {
 			outBuf := make([]float32, 1024)
 			var bandStart = 0
-			var bandEnd = 0
+			var bandEnd = opusPkt.Bandwidth.CeltBand()
 			if opusPkt.Mode == comm.ModeHybrid {
-
-				bandStart = ternary(opusPkt.Mode == comm.ModeHybrid, 17, 0)
-				bandEnd = opusPkt.Bandwidth.CeltBand()
-
+				bandStart = 17
 			}
 			d.Celt.Decode(rd, outBuf, opusPkt.FrameDuration, bandStart, bandEnd)
 		}
 	}
 
 	return nil
-}
-func ternary(condition bool, trueVal, falseVal int) int {
-	if condition {
-		return trueVal
-	}
-	return falseVal
 }
 
 // ReceiveFrame 接收解码后的音频帧
