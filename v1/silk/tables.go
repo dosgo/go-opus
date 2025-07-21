@@ -204,8 +204,9 @@ var LSF_STAGE2_NB_MB = struct {
 	},
 }
 */
-/*
-LSF_STAGE2_NB_MB.MAP= [][]*comm.ICDFContext{
+
+func init() {
+	LSF_STAGE2_NB_MB.MAP = [][]*comm.ICDFContext{
 		{LSF_STAGE2_NB_MB.A, LSF_STAGE2_NB_MB.A, LSF_STAGE2_NB_MB.A, LSF_STAGE2_NB_MB.A, LSF_STAGE2_NB_MB.A, LSF_STAGE2_NB_MB.A, LSF_STAGE2_NB_MB.A, LSF_STAGE2_NB_MB.A, LSF_STAGE2_NB_MB.A, LSF_STAGE2_NB_MB.A}, // Placeholder for index 0
 		{LSF_STAGE2_NB_MB.B, LSF_STAGE2_NB_MB.D, LSF_STAGE2_NB_MB.B, LSF_STAGE2_NB_MB.C, LSF_STAGE2_NB_MB.C, LSF_STAGE2_NB_MB.B, LSF_STAGE2_NB_MB.C, LSF_STAGE2_NB_MB.B, LSF_STAGE2_NB_MB.B, LSF_STAGE2_NB_MB.B},
 		{LSF_STAGE2_NB_MB.C, LSF_STAGE2_NB_MB.B, LSF_STAGE2_NB_MB.B, LSF_STAGE2_NB_MB.B, LSF_STAGE2_NB_MB.B, LSF_STAGE2_NB_MB.B, LSF_STAGE2_NB_MB.B, LSF_STAGE2_NB_MB.B, LSF_STAGE2_NB_MB.B, LSF_STAGE2_NB_MB.B},
@@ -238,8 +239,42 @@ LSF_STAGE2_NB_MB.MAP= [][]*comm.ICDFContext{
 		{LSF_STAGE2_NB_MB.D, LSF_STAGE2_NB_MB.F, LSF_STAGE2_NB_MB.F, LSF_STAGE2_NB_MB.E, LSF_STAGE2_NB_MB.E, LSF_STAGE2_NB_MB.E, LSF_STAGE2_NB_MB.E, LSF_STAGE2_NB_MB.D, LSF_STAGE2_NB_MB.D, LSF_STAGE2_NB_MB.C},
 		{LSF_STAGE2_NB_MB.C, LSF_STAGE2_NB_MB.F, LSF_STAGE2_NB_MB.D, LSF_STAGE2_NB_MB.H, LSF_STAGE2_NB_MB.F, LSF_STAGE2_NB_MB.F, LSF_STAGE2_NB_MB.E, LSF_STAGE2_NB_MB.E, LSF_STAGE2_NB_MB.F, LSF_STAGE2_NB_MB.E},
 		{LSF_STAGE2_NB_MB.E, LSF_STAGE2_NB_MB.E, LSF_STAGE2_NB_MB.F, LSF_STAGE2_NB_MB.E, LSF_STAGE2_NB_MB.F, LSF_STAGE2_NB_MB.G, LSF_STAGE2_NB_MB.F, LSF_STAGE2_NB_MB.G, LSF_STAGE2_NB_MB.F, LSF_STAGE2_NB_MB.E},
-	};
-*/
+	}
+	lsf_stage2_wb.MAP = [][]*comm.ICDFContext{
+		{lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I},
+		{lsf_stage2_wb.K, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.K, lsf_stage2_wb.K, lsf_stage2_wb.K, lsf_stage2_wb.K, lsf_stage2_wb.K, lsf_stage2_wb.J, lsf_stage2_wb.J, lsf_stage2_wb.J, lsf_stage2_wb.I, lsf_stage2_wb.L},
+		{lsf_stage2_wb.K, lsf_stage2_wb.N, lsf_stage2_wb.N, lsf_stage2_wb.L, lsf_stage2_wb.P, lsf_stage2_wb.M, lsf_stage2_wb.M, lsf_stage2_wb.N, lsf_stage2_wb.K, lsf_stage2_wb.N, lsf_stage2_wb.M, lsf_stage2_wb.N, lsf_stage2_wb.N, lsf_stage2_wb.M, lsf_stage2_wb.L, lsf_stage2_wb.L},
+		{lsf_stage2_wb.I, lsf_stage2_wb.K, lsf_stage2_wb.J, lsf_stage2_wb.K, lsf_stage2_wb.K, lsf_stage2_wb.J, lsf_stage2_wb.J, lsf_stage2_wb.J, lsf_stage2_wb.J, lsf_stage2_wb.J, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.J},
+		{lsf_stage2_wb.I, lsf_stage2_wb.O, lsf_stage2_wb.N, lsf_stage2_wb.M, lsf_stage2_wb.O, lsf_stage2_wb.M, lsf_stage2_wb.P, lsf_stage2_wb.N, lsf_stage2_wb.M, lsf_stage2_wb.M, lsf_stage2_wb.M, lsf_stage2_wb.N, lsf_stage2_wb.N, lsf_stage2_wb.M, lsf_stage2_wb.M, lsf_stage2_wb.L},
+		{lsf_stage2_wb.I, lsf_stage2_wb.L, lsf_stage2_wb.N, lsf_stage2_wb.N, lsf_stage2_wb.M, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.N, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.K, lsf_stage2_wb.M},
+		{lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I},
+		{lsf_stage2_wb.I, lsf_stage2_wb.K, lsf_stage2_wb.O, lsf_stage2_wb.L, lsf_stage2_wb.P, lsf_stage2_wb.K, lsf_stage2_wb.N, lsf_stage2_wb.L, lsf_stage2_wb.M, lsf_stage2_wb.N, lsf_stage2_wb.N, lsf_stage2_wb.M, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.K, lsf_stage2_wb.L},
+		{lsf_stage2_wb.I, lsf_stage2_wb.O, lsf_stage2_wb.K, lsf_stage2_wb.O, lsf_stage2_wb.O, lsf_stage2_wb.M, lsf_stage2_wb.N, lsf_stage2_wb.M, lsf_stage2_wb.O, lsf_stage2_wb.N, lsf_stage2_wb.M, lsf_stage2_wb.M, lsf_stage2_wb.N, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.L},
+		{lsf_stage2_wb.K, lsf_stage2_wb.J, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I},
+		{lsf_stage2_wb.I, lsf_stage2_wb.J, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.J},
+		{lsf_stage2_wb.K, lsf_stage2_wb.K, lsf_stage2_wb.L, lsf_stage2_wb.M, lsf_stage2_wb.N, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.K, lsf_stage2_wb.K, lsf_stage2_wb.J, lsf_stage2_wb.L},
+		{lsf_stage2_wb.K, lsf_stage2_wb.K, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.M, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.K, lsf_stage2_wb.J, lsf_stage2_wb.L},
+		{lsf_stage2_wb.L, lsf_stage2_wb.M, lsf_stage2_wb.M, lsf_stage2_wb.M, lsf_stage2_wb.O, lsf_stage2_wb.M, lsf_stage2_wb.M, lsf_stage2_wb.N, lsf_stage2_wb.L, lsf_stage2_wb.N, lsf_stage2_wb.M, lsf_stage2_wb.M, lsf_stage2_wb.N, lsf_stage2_wb.M, lsf_stage2_wb.L, lsf_stage2_wb.M},
+		{lsf_stage2_wb.I, lsf_stage2_wb.O, lsf_stage2_wb.M, lsf_stage2_wb.N, lsf_stage2_wb.M, lsf_stage2_wb.P, lsf_stage2_wb.N, lsf_stage2_wb.K, lsf_stage2_wb.O, lsf_stage2_wb.N, lsf_stage2_wb.P, lsf_stage2_wb.M, lsf_stage2_wb.M, lsf_stage2_wb.L, lsf_stage2_wb.N, lsf_stage2_wb.L},
+		{lsf_stage2_wb.I, lsf_stage2_wb.J, lsf_stage2_wb.I, lsf_stage2_wb.J, lsf_stage2_wb.J, lsf_stage2_wb.J, lsf_stage2_wb.J, lsf_stage2_wb.J, lsf_stage2_wb.J, lsf_stage2_wb.J, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.J, lsf_stage2_wb.I},
+		{lsf_stage2_wb.J, lsf_stage2_wb.O, lsf_stage2_wb.N, lsf_stage2_wb.P, lsf_stage2_wb.N, lsf_stage2_wb.M, lsf_stage2_wb.N, lsf_stage2_wb.L, lsf_stage2_wb.M, lsf_stage2_wb.N, lsf_stage2_wb.M, lsf_stage2_wb.M, lsf_stage2_wb.M, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.M},
+		{lsf_stage2_wb.J, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.M, lsf_stage2_wb.M, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.N, lsf_stage2_wb.K, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.N, lsf_stage2_wb.N, lsf_stage2_wb.N, lsf_stage2_wb.L, lsf_stage2_wb.M},
+		{lsf_stage2_wb.K, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.K, lsf_stage2_wb.K, lsf_stage2_wb.K, lsf_stage2_wb.L, lsf_stage2_wb.K, lsf_stage2_wb.J, lsf_stage2_wb.K, lsf_stage2_wb.J, lsf_stage2_wb.K, lsf_stage2_wb.J, lsf_stage2_wb.J, lsf_stage2_wb.J, lsf_stage2_wb.M},
+		{lsf_stage2_wb.I, lsf_stage2_wb.K, lsf_stage2_wb.L, lsf_stage2_wb.N, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.K, lsf_stage2_wb.K, lsf_stage2_wb.K, lsf_stage2_wb.J, lsf_stage2_wb.J, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I},
+		{lsf_stage2_wb.L, lsf_stage2_wb.M, lsf_stage2_wb.L, lsf_stage2_wb.N, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.K, lsf_stage2_wb.K, lsf_stage2_wb.J, lsf_stage2_wb.J, lsf_stage2_wb.J, lsf_stage2_wb.J, lsf_stage2_wb.J, lsf_stage2_wb.K, lsf_stage2_wb.K, lsf_stage2_wb.M},
+		{lsf_stage2_wb.K, lsf_stage2_wb.O, lsf_stage2_wb.L, lsf_stage2_wb.P, lsf_stage2_wb.P, lsf_stage2_wb.M, lsf_stage2_wb.N, lsf_stage2_wb.M, lsf_stage2_wb.N, lsf_stage2_wb.L, lsf_stage2_wb.N, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.K, lsf_stage2_wb.L, lsf_stage2_wb.L},
+		{lsf_stage2_wb.K, lsf_stage2_wb.L, lsf_stage2_wb.N, lsf_stage2_wb.O, lsf_stage2_wb.O, lsf_stage2_wb.L, lsf_stage2_wb.N, lsf_stage2_wb.L, lsf_stage2_wb.M, lsf_stage2_wb.M, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.K, lsf_stage2_wb.M},
+		{lsf_stage2_wb.J, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.M, lsf_stage2_wb.M, lsf_stage2_wb.M, lsf_stage2_wb.M, lsf_stage2_wb.L, lsf_stage2_wb.N, lsf_stage2_wb.N, lsf_stage2_wb.N, lsf_stage2_wb.L, lsf_stage2_wb.J, lsf_stage2_wb.J, lsf_stage2_wb.J, lsf_stage2_wb.J},
+		{lsf_stage2_wb.K, lsf_stage2_wb.N, lsf_stage2_wb.L, lsf_stage2_wb.O, lsf_stage2_wb.O, lsf_stage2_wb.M, lsf_stage2_wb.P, lsf_stage2_wb.M, lsf_stage2_wb.M, lsf_stage2_wb.N, lsf_stage2_wb.L, lsf_stage2_wb.M, lsf_stage2_wb.M, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.L},
+		{lsf_stage2_wb.I, lsf_stage2_wb.O, lsf_stage2_wb.J, lsf_stage2_wb.J, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I},
+		{lsf_stage2_wb.I, lsf_stage2_wb.O, lsf_stage2_wb.O, lsf_stage2_wb.L, lsf_stage2_wb.N, lsf_stage2_wb.K, lsf_stage2_wb.N, lsf_stage2_wb.N, lsf_stage2_wb.L, lsf_stage2_wb.M, lsf_stage2_wb.M, lsf_stage2_wb.P, lsf_stage2_wb.P, lsf_stage2_wb.M, lsf_stage2_wb.M, lsf_stage2_wb.M},
+		{lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.P, lsf_stage2_wb.L, lsf_stage2_wb.N, lsf_stage2_wb.M, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.K, lsf_stage2_wb.K, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.K, lsf_stage2_wb.L},
+		{lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.J, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.K, lsf_stage2_wb.J, lsf_stage2_wb.K, lsf_stage2_wb.J, lsf_stage2_wb.J, lsf_stage2_wb.K, lsf_stage2_wb.K, lsf_stage2_wb.K, lsf_stage2_wb.J, lsf_stage2_wb.J},
+		{lsf_stage2_wb.I, lsf_stage2_wb.L, lsf_stage2_wb.K, lsf_stage2_wb.N, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.K, lsf_stage2_wb.L, lsf_stage2_wb.K, lsf_stage2_wb.J, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.J, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.J},
+		{lsf_stage2_wb.L, lsf_stage2_wb.N, lsf_stage2_wb.N, lsf_stage2_wb.M, lsf_stage2_wb.P, lsf_stage2_wb.N, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.K, lsf_stage2_wb.L, lsf_stage2_wb.K, lsf_stage2_wb.K, lsf_stage2_wb.J, lsf_stage2_wb.I, lsf_stage2_wb.J, lsf_stage2_wb.I},
+		{lsf_stage2_wb.K, lsf_stage2_wb.L, lsf_stage2_wb.N, lsf_stage2_wb.L, lsf_stage2_wb.M, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.L, lsf_stage2_wb.K, lsf_stage2_wb.J, lsf_stage2_wb.K, lsf_stage2_wb.O, lsf_stage2_wb.M, lsf_stage2_wb.I, lsf_stage2_wb.I, lsf_stage2_wb.I},
+	}
+}
 
 var lsf_stage2_wb = lsfStage2NbMbStruct{
 	// 创建 ICDFContext 实例
@@ -277,43 +312,6 @@ var lsf_stage2_wb = lsfStage2NbMbStruct{
 	},
 }
 
-/*
-	// 创建 MAP 数组
-	mapData := [][]*comm.ICDFContext{
-		{a, a, a, a, a, a, a, a, a, a},
-		{b, d, b, c, c, b, c, b, b, b},
-		{c, b, b, b, b, b, b, b, b, b},
-		{b, c, c, c, c, b, c, b, b, b},
-		{c, d, d, d, d, c, c, c, c, c},
-		{a, f, d, d, c, c, c, c, b, b},
-		{a, c, c, c, c, c, c, c, c, b},
-		{c, d, g, e, e, e, f, e, f, f},
-		{c, e, f, f, e, f, e, g, e, e},
-		{c, e, e, h, e, f, e, f, f, e},
-		{e, d, d, d, c, d, c, c, c, c},
-		{b, f, f, g, e, f, e, f, f, f},
-		{c, h, e, g, f, f, f, f, f, f},
-		{c, h, f, f, f, f, f, g, f, e},
-		{d, d, f, e, e, f, e, f, e, e},
-		{c, d, d, f, f, e, e, e, e, e},
-		{c, e, e, g, e, f, e, f, f, f},
-		{c, f, e, g, f, f, f, e, f, e},
-		{c, h, e, f, e, f, e, f, f, f},
-		{c, f, e, g, h, g, f, g, f, e},
-		{d, g, h, e, g, f, f, g, e, f},
-		{c, h, g, e, e, e, f, e, f, f},
-		{e, f, f, e, g, g, f, g, f, e},
-		{c, f, f, g, f, g, e, g, e, e},
-		{e, f, f, f, d, h, e, f, f, e},
-		{c, d, e, f, f, g, e, f, f, e},
-		{c, d, c, d, d, e, c, d, d, d},
-		{b, b, c, c, c, c, c, d, c, c},
-		{e, f, f, g, g, g, f, g, e, f},
-		{d, f, f, e, e, e, e, d, d, c},
-		{c, f, d, h, f, f, e, e, f, e},
-		{e, e, f, e, f, g, f, g, f, e},
-	}
-*/
 // LSF_STAGE2_EXTENSION is the ICDF context for LSF stage 2 extension
 var LSF_STAGE2_EXTENSION = &comm.ICDFContext{
 	Total: 256,
