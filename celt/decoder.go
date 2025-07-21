@@ -1271,12 +1271,12 @@ func (d *Celt) DecodeAllocation(rd *comm.RangeDecoder, bandStart, bandEnd int) {
 	}
 
 	codedband := band.end
-bandsLoop:
+
 	for j := band.end - 1; j >= band.start; j-- {
+		codedband = j + 1
 		if j == skipStartband {
 			available += skipBit
-			codedband = j + 1
-			break bandsLoop
+			break
 		}
 
 		bandDelta := int32(FREQ_BANDS[j+1] - FREQ_BANDS[band.start])
@@ -1295,8 +1295,7 @@ bandsLoop:
 		}
 		if allocation >= minVal {
 			if rd.DecodeLogP(1) {
-				codedband = j + 1
-				break bandsLoop
+				break
 			}
 			total += 1 << 3
 			allocation -= 1 << 3
