@@ -79,7 +79,7 @@ func (d *Decoder) SendPacket(packetData []byte) error {
 		return errors.New("decoder not configured")
 	}
 
-	opusPkt, err := ParsePacket(packetData)
+	opusPkt, err := comm.ParsePacket(packetData)
 	if err != nil {
 		return err
 	}
@@ -190,29 +190,4 @@ func (d *Decoder) Flush() error {
 		//d.Celt.Flush()
 	}
 	return nil
-}
-
-// ParsePacket 解析Opus包
-func ParsePacket(data []byte) (*comm.Packet, error) {
-	// 简化的包解析实现
-	pkt := &comm.Packet{
-		FrameDuration: comm.FrameDurationStandard,
-		Stereo:        len(data) > 100, // 简化判断
-		Bandwidth:     comm.BandwidthWide,
-		Mode:          comm.ModeHybrid,
-	}
-
-	// 假设包包含多个帧
-	frameSize := len(data) / 3
-	if frameSize > 0 {
-		pkt.Frames = [][]byte{
-			data[:frameSize],
-			data[frameSize : 2*frameSize],
-			data[2*frameSize:],
-		}
-	} else {
-		pkt.Frames = [][]byte{data}
-	}
-
-	return pkt, nil
 }
