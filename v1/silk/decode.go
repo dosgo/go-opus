@@ -117,7 +117,7 @@ func mulRound32(a, b int32, bits uint) int32 {
 	return int32((product + half) >> bits)
 }
 
-func (b *Band) Stabilize(nlsfs []int32) {
+func (b *Band) Stabilize(nlsfs []int16) {
 	n := b.Order
 	for iter := 0; iter < 20; iter++ {
 		minDiff := int32(0)
@@ -147,9 +147,9 @@ func (b *Band) Stabilize(nlsfs []int32) {
 
 		switch {
 		case minK == 0:
-			nlsfs[0] = int32(b.MinSpacing[0])
+			nlsfs[0] = b.MinSpacing[0]
 		case minK == n:
-			nlsfs[n-1] = 32768 - int32(b.MinSpacing[n])
+			nlsfs[n-1] = int16(32768 - int32(b.MinSpacing[n]))
 		default:
 			halfDelta := int32(b.MinSpacing[minK]) / 2
 
@@ -176,8 +176,8 @@ func (b *Band) Stabilize(nlsfs []int32) {
 				center = maxCenter
 			}
 
-			nlsfs[minK-1] = int32(center - halfDelta)
-			nlsfs[minK] = int32(center + halfDelta)
+			nlsfs[minK-1] = int16(center - halfDelta)
+			nlsfs[minK] = int16(center + halfDelta)
 		}
 	}
 
@@ -189,19 +189,19 @@ func (b *Band) Stabilize(nlsfs []int32) {
 	prev := int32(0)
 	for i := 0; i < n; i++ {
 		minVal := int32(prev + int32(b.MinSpacing[i]))
-		if nlsfs[i] < minVal {
-			nlsfs[i] = minVal
+		if int32(nlsfs[i]) < minVal {
+			nlsfs[i] = int16(minVal)
 		}
-		prev = nlsfs[i]
+		prev = int32(nlsfs[i])
 	}
 
 	next := int32(32768)
 	for i := n - 1; i >= 0; i-- {
 		minVal := next - int32(b.MinSpacing[i+1])
-		if nlsfs[i] > minVal {
-			nlsfs[i] = minVal
+		if int32(nlsfs[i]) > minVal {
+			nlsfs[i] = int16(minVal)
 		}
-		next = nlsfs[i]
+		next = int32(nlsfs[i])
 	}
 }
 
@@ -410,6 +410,33 @@ type PitchLag interface {
 	Offset() [][][]int8
 	Contour() []*comm.ICDFContext
 }
+type CommPitchLag struct {
+	LOW_PART *comm.ICDFContext
+	MIN_LAG  uint16
+	MAX_LAG  uint16
+	SCALE    uint16
+	OFFSET   [][][]int8
+	CONTOUR  []*comm.ICDFContext
+}
+
+func (pitchLag CommPitchLag) LowPart() *comm.ICDFContext {
+	return pitchLag.LOW_PART
+}
+func (pitchLag CommPitchLag) MinLag() uint16 {
+	return pitchLag.MIN_LAG
+}
+func (pitchLag CommPitchLag) MaxLag() uint16 {
+	return pitchLag.MAX_LAG
+}
+func (pitchLag CommPitchLag) Scale() uint16 {
+	return pitchLag.SCALE
+}
+func (pitchLag CommPitchLag) Offset() [][][]int8 {
+	return pitchLag.OFFSET
+}
+func (pitchLag CommPitchLag) Contour() []*comm.ICDFContext {
+	return pitchLag.CONTOUR
+}
 
 var NB_MB = Band{
 	Order:           10,
@@ -544,49 +571,40 @@ var PITCH_CONTOUR_MB_WB = []*comm.ICDFContext{
 }
 
 // NB 带宽实现 PitchLag 接口
-/*
-func (n NB) LowPart() *comm.ICDFContext {
-	return &comm.ICDFContext{
+var NB_PitchLag = &CommPitchLag{
+	LOW_PART: &comm.ICDFContext{
 		Total: 256,
 		Dist:  []int{64, 128, 192, 256},
-	}
+	},
+	MIN_LAG: 16,
+	MAX_LAG: 144,
+	SCALE:   4,
+	OFFSET:  PITCH_OFFSET_NB,
+	CONTOUR: PITCH_CONTOUR_NB,
 }
-
-func (n NB) MinLag() uint16               { return 16 }
-func (n NB) MaxLag() uint16               { return 144 }
-func (n NB) Scale() uint16                { return 4 }
-func (n NB) Offset() [][][]int8           { return PITCH_OFFSET_NB }
-func (n NB) Contour() []*comm.ICDFContext { return PITCH_CONTOUR_NB }
-
-// MB 带宽实现 PitchLag 接口
-func (m MB) LowPart() *comm.ICDFContext {
-	return &comm.ICDFContext{
+var MB_PitchLag = &CommPitchLag{
+	LOW_PART: &comm.ICDFContext{
 		Total: 256,
 		Dist:  []int{43, 85, 128, 171, 213, 256},
-	}
+	},
+	MIN_LAG: 24,
+	MAX_LAG: 216,
+	SCALE:   6,
+	OFFSET:  PITCH_OFFSET_MB_WB,
+	CONTOUR: PITCH_CONTOUR_MB_WB,
 }
 
-func (m MB) MinLag() uint16               { return 24 }
-func (m MB) MaxLag() uint16               { return 216 }
-func (m MB) Scale() uint16                { return 6 }
-func (m MB) Offset() [][][]int8           { return PITCH_OFFSET_MB_WB }
-func (m MB) Contour() []*comm.ICDFContext { return PITCH_CONTOUR_MB_WB }
-*/
-// WB 带宽实现 PitchLag 接口
-/*
-func (w WB) LowPart() *comm.ICDFContext {
-	return &comm.ICDFContext{
+var WB_PitchLag = &CommPitchLag{
+	LOW_PART: &comm.ICDFContext{
 		Total: 256,
 		Dist:  []int{32, 64, 96, 128, 160, 192, 224, 256},
-	}
+	},
+	MIN_LAG: 32,
+	MAX_LAG: 288,
+	SCALE:   8,
+	OFFSET:  PITCH_OFFSET_MB_WB,
+	CONTOUR: PITCH_CONTOUR_MB_WB,
 }
-
-func (w WB) MinLag() uint16               { return 32 }
-func (w WB) MaxLag() uint16               { return 288 }
-func (w WB) Scale() uint16                { return 8 }
-func (w WB) Offset() [][][]int8           { return PITCH_OFFSET_MB_WB }
-func (w WB) Contour() []*comm.ICDFContext { return PITCH_CONTOUR_MB_WB }
-*/
 
 // LTP_PERIODICITY 是长期周期性参数
 var LTP_PERIODICITY = &comm.ICDFContext{
@@ -1379,7 +1397,7 @@ func (f *SilkFrame) ParseLpc(rd *comm.RangeDecoder, interpolate bool, band Band)
 	}
 
 	// 计算归一化线谱频率
-	nlsfs := make([]int32, len(residuals))
+	nlsfs := make([]int16, len(residuals))
 	for i := range residuals {
 		r := residuals[len(residuals)-1-i]
 		c := int32(codebooks[i])
@@ -1390,7 +1408,7 @@ func (f *SilkFrame) ParseLpc(rd *comm.RangeDecoder, interpolate bool, band Band)
 		} else if nlsf > 32767 {
 			nlsf = 32767
 		}
-		nlsfs[i] = int32(nlsf)
+		nlsfs[i] = int16(nlsf)
 	}
 
 	// 稳定处理
@@ -1672,10 +1690,10 @@ func (f *SilkFrame) Parse(rd *comm.RangeDecoder, info *SilkInfo, vad bool, first
 	var order int
 	if info.Bandwidth > BandwidthMedium {
 		f.ParseLpc(rd, longFrame, WB)
-		order = WB_ORDER
+		order = WB.Order
 	} else {
 		f.ParseLpc(rd, longFrame, NB_MB)
-		order = NB_MB_ORDER
+		order = NB_MB.Order
 	}
 
 	// 解析音高延迟和 LTP 系数
@@ -1683,11 +1701,11 @@ func (f *SilkFrame) Parse(rd *comm.RangeDecoder, info *SilkInfo, vad bool, first
 		absolute := first || !f.PrevVoiced
 		switch info.Bandwidth {
 		case BandwidthNarrow:
-			f.ParsePitchLags(rd, subframes, absolute, NB{})
+			f.ParsePitchLags(rd, subframes, absolute, NB_PitchLag)
 		case BandwidthMedium:
-			f.ParsePitchLags(rd, subframes, absolute, MB{})
+			f.ParsePitchLags(rd, subframes, absolute, MB_PitchLag)
 		default:
-			f.ParsePitchLags(rd, subframes, absolute, WB{})
+			f.ParsePitchLags(rd, subframes, absolute, WB_PitchLag)
 		}
 		f.ParseLtpFilterCoeff(rd, subframes)
 	}
@@ -1737,7 +1755,7 @@ func (f *SilkFrame) Parse(rd *comm.RangeDecoder, info *SilkInfo, vad bool, first
 				start := LPC_HISTORY + i*info.SfSize - before
 				stop := LPC_HISTORY + i*info.SfSize - end
 				startRes := RES_HISTORY + i*info.SfSize - before
-				stopRes := RES_HISTORY + i*info.SfSize - end
+				//stopRes := RES_HISTORY + i*info.SfSize - end
 
 				for j := start; j < stop; j++ {
 					// 获取历史窗口
@@ -1781,7 +1799,7 @@ func (f *SilkFrame) Parse(rd *comm.RangeDecoder, info *SilkInfo, vad bool, first
 
 		// 合成音频
 		startLpc := LPC_HISTORY + i*info.SfSize
-		stopLpc := LPC_HISTORY + (i+1)*info.SfSize
+		//stopLpc := LPC_HISTORY + (i+1)*info.SfSize
 		startRes := RES_HISTORY + i*info.SfSize
 
 		for j := 0; j < info.SfSize; j++ {

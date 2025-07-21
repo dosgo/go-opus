@@ -1,12 +1,10 @@
 package opus
 
 import (
-	"encoding/binary"
 	"errors"
-	"fmt"
-	"os"
 
 	"github.com/dosgo/goOpus/celt"
+	"github.com/dosgo/goOpus/comm"
 	"github.com/dosgo/goOpus/silk"
 )
 
@@ -41,14 +39,14 @@ func (d *Decoder) Configure() error {
 		channels = int(d.Extradata[9])
 	}
 
-	gainDb := 0
+	//gainDb := 0
 	streams := 1
 	coupledStreams := 0
-	var mapping []byte
+	//var mapping []byte
 	channelMap := false
 
 	if len(d.Extradata) >= OPUS_HEAD_SIZE {
-		gainDb = int(binary.LittleEndian.Uint16(d.Extradata[16:18]))
+		//gainDb = int(binary.LittleEndian.Uint16(d.Extradata[16:18]))
 		channelMap = d.Extradata[18] != 0
 	}
 
@@ -58,7 +56,7 @@ func (d *Decoder) Configure() error {
 		if streams+coupledStreams != channels {
 			return errors.New("invalid channel mapping")
 		}
-		mapping = d.Extradata[OPUS_HEAD_SIZE+2:]
+		//mapping = d.Extradata[OPUS_HEAD_SIZE+2:]
 	} else {
 		if channels > 2 || channelMap {
 			return errors.New("configuration invalid")
@@ -87,24 +85,24 @@ func (d *Decoder) SendPacket(packetData []byte) error {
 	}
 
 	// 配置 SILK 和 CELT 解码器
-	if opusPkt.Mode != ModeCelt {
+	if opusPkt.Mode != comm.ModeCelt {
 		d.Silk.Setup(opusPkt)
 	}
 
-	if opusPkt.Mode == ModeCelt {
-		d.Celt.Setup(opusPkt)
+	if opusPkt.Mode == comm.ModeCelt {
+		d.Celt.Setup(opusPkt.Stereo)
 	}
 
-	if opusPkt.Mode == ModeHybrid {
+	if opusPkt.Mode == comm.ModeHybrid {
 		// TODO: 实现混合模式
 	}
 
 	// 解码所有帧
 	for _, frame := range opusPkt.Frames {
-		rd := NewRangeDecoder(frame)
+		rd := comm.NewRangeDecoder(frame)
 
-		if opusPkt.Mode != ModeCelt {
-			if err := d.Silk.Decode(rd); err != nil {
+		if opusPkt.Mode != comm.ModeCelt {
+			if _, err := d.Silk.Decode(rd); err != nil {
 				return err
 			}
 		} else {
@@ -115,17 +113,17 @@ func (d *Decoder) SendPacket(packetData []byte) error {
 		consumed := rd.Tell()
 		redundancy := false
 
-		if opusPkt.Mode == ModeHybrid && consumed+37 <= size*8 {
-			redundancy = rd.DecodeLogP(12) != 0
-		} else if opusPkt.Mode == ModeSilk && consumed+17 <= size*8 {
+		if opusPkt.Mode == comm.ModeHybrid && consumed+37 <= size*8 {
+			redundancy = rd.DecodeLogP(12)
+		} else if opusPkt.Mode == comm.ModeSilk && consumed+17 <= size*8 {
 			redundancy = true
 		}
 
 		if redundancy {
-			redundancyPos := rd.DecodeLogP(1) != 0
+			redundancyPos := rd.DecodeLogP(1)
 			redundancySize := 0
 
-			if opusPkt.Mode == ModeHybrid {
+			if opusPkt.Mode == comm.ModeHybrid {
 				redundancySize = int(rd.DecodeUniform(256)) + 2
 			} else {
 				redundancySize = size - (consumed+7)/8
@@ -135,29 +133,35 @@ func (d *Decoder) SendPacket(packetData []byte) error {
 				return errors.New("invalid redundancy size")
 			}
 
-			_size := size - redundancySize
+			//_size := size - redundancySize
 
 			if redundancyPos {
 				// TODO: 实现冗余解码
-				d.Celt.Flush()
+				//d.Celt.Flush()
 			}
 		}
 
-		if opusPkt.Mode != ModeSilk {
+		if opusPkt.Mode != comm.ModeSilk {
 			outBuf := make([]float32, 1024)
-			bandRange := NewRange(0, 0)
+			var bandStart = 0
+			var bandEnd = 0
+			if opusPkt.Mode == comm.ModeHybrid {
 
-			if opusPkt.Mode == ModeHybrid {
-				bandRange = NewRange(17, opusPkt.Bandwidth.CeltBand())
-			}
+				bandStart = ternary(opusPkt.Mode == comm.ModeHybrid, 17, 0)
+				bandEnd = opusPkt.Bandwidth.CeltBand()
 
-			if err := d.Celt.Decode(rd, outBuf, opusPkt.FrameDuration, bandRange); err != nil {
-				return err
 			}
+			d.Celt.Decode(rd, outBuf, opusPkt.FrameDuration, bandStart, bandEnd)
 		}
 	}
 
 	return nil
+}
+func ternary(condition bool, trueVal, falseVal int) int {
+	if condition {
+		return trueVal
+	}
+	return falseVal
 }
 
 // ReceiveFrame 接收解码后的音频帧
@@ -183,65 +187,19 @@ func (d *Decoder) Flush() error {
 		d.Silk.Flush()
 	}
 	if d.Celt != nil {
-		d.Celt.Flush()
+		//d.Celt.Flush()
 	}
 	return nil
 }
 
-// Test 测试函数
-func Test(testVectors []string) {
-	for i, file := range testVectors {
-		testSendPacket(i+1, file)
-	}
-}
-
-func testSendPacket(index int, filename string) {
-	fmt.Printf("Testing %s\n", filename)
-
-	// 读取整个文件内容
-	data, err := os.ReadFile(filename)
-	if err != nil {
-		fmt.Printf("Error reading file: %v\n", err)
-		return
-	}
-
-	// 创建解码器
-	dec := NewDecoder()
-
-	// 假设文件前19字节是extradata
-	if len(data) >= OPUS_HEAD_SIZE {
-		dec.SetExtradata(data[:OPUS_HEAD_SIZE])
-	}
-
-	// 配置解码器
-	if err := dec.Configure(); err != nil {
-		fmt.Printf("Configuration error: %v\n", err)
-		return
-	}
-
-	// 发送包进行解码
-	if err := dec.SendPacket(data); err != nil {
-		fmt.Printf("Send packet error: %v\n", err)
-	}
-
-	// 获取解码后的帧
-	left, right, err := dec.ReceiveFrame()
-	if err != nil {
-		fmt.Printf("Receive frame error: %v\n", err)
-		return
-	}
-
-	fmt.Printf("Decoded %d left samples, %d right samples\n", len(left), len(right))
-}
-
 // ParsePacket 解析Opus包
-func ParsePacket(data []byte) (*Packet, error) {
+func ParsePacket(data []byte) (*comm.Packet, error) {
 	// 简化的包解析实现
-	pkt := &Packet{
-		FrameDuration: FrameDurationStandard,
+	pkt := &comm.Packet{
+		FrameDuration: comm.FrameDurationStandard,
 		Stereo:        len(data) > 100, // 简化判断
-		Bandwidth:     BandwidthWide,
-		Mode:          ModeHybrid,
+		Bandwidth:     comm.BandwidthWide,
+		Mode:          comm.ModeHybrid,
 	}
 
 	// 假设包包含多个帧
@@ -258,54 +216,3 @@ func ParsePacket(data []byte) (*Packet, error) {
 
 	return pkt, nil
 }
-
-// Packet 表示Opus音频包
-type Packet struct {
-	FrameDuration FrameDuration
-	Stereo        bool
-	Bandwidth     Bandwidth
-	Mode          Mode
-	Frames        [][]byte
-}
-
-// FrameDuration 表示帧持续时间类型
-type FrameDuration int
-
-const (
-	FrameDurationMedium FrameDuration = iota
-	FrameDurationStandard
-	FrameDurationLong
-	FrameDurationVeryLong
-)
-
-// Bandwidth 表示带宽类型
-type Bandwidth int
-
-const (
-	BandwidthNarrow Bandwidth = iota
-	BandwidthMedium
-	BandwidthWide
-	BandwidthSuperwide
-	BandwidthFull
-)
-
-// CeltBand 获取CELT带宽
-func (b Bandwidth) CeltBand() int {
-	switch b {
-	case BandwidthNarrow:
-		return 64
-	case BandwidthMedium:
-		return 96
-	default:
-		return 128
-	}
-}
-
-// Mode 表示编码模式
-type Mode int
-
-const (
-	ModeSilk Mode = iota
-	ModeCelt
-	ModeHybrid
-)

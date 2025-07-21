@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/dosgo/goOpus/celt/bitexact"
 	"github.com/dosgo/goOpus/comm"
 )
 
@@ -814,8 +815,8 @@ func NewCelt(stereo bool) *Celt {
 }
 
 // Setup 方法
-func (c *Celt) Setup(pkt struct{ stereo bool }) {
-	c.stereo_pkt = pkt.stereo
+func (c *Celt) Setup(stereo_pkt bool) {
+	c.stereo_pkt = stereo_pkt
 }
 
 // ResetGains 方法
@@ -1248,7 +1249,7 @@ func (d *Celt) DecodeAllocation(rd *comm.RangeDecoder, bandStart, bandEnd int) {
 	}
 
 	done := false
-	total := 0
+	var total = 0
 	for i := band.end - 1; i >= band.start; i-- {
 		bits := bits1[i] + (int32(low) * bits2[i] >> ALLOC_STEPS)
 
@@ -1279,7 +1280,7 @@ bandsLoop:
 		}
 
 		bandDelta := int32(FREQ_BANDS[j+1] - FREQ_BANDS[band.start])
-		remaining := available - total
+		remaining := available - int(total)
 		bits := int32(remaining) / bandDelta
 		remaining -= int(bits * bandDelta)
 
@@ -1301,10 +1302,10 @@ bandsLoop:
 			allocation -= 1 << 3
 		}
 
-		total -= d.pulses[j]
+		total -= int(d.pulses[j])
 		if intensityStereoBit != 0 {
 			total -= intensityStereoBit
-			intensityStereoBit = LOG2_FRAC[j-band.start]
+			intensityStereoBit = int(LOG2_FRAC[j-band.start])
 			total += intensityStereoBit
 		}
 
@@ -1313,7 +1314,7 @@ bandsLoop:
 		} else {
 			d.pulses[j] = 0
 		}
-		total += d.pulses[j]
+		total += int(d.pulses[j])
 	}
 
 	d.intensity_stereo = 0
@@ -1330,36 +1331,36 @@ bandsLoop:
 
 	bandDelta := FREQ_BANDS[codedband] - FREQ_BANDS[band.start]
 	remaining := available - total
-	bandbits := remaining / bandDelta
-	remaining -= bandbits * bandDelta
+	bandbits := remaining / int(bandDelta)
+	remaining -= bandbits * int(bandDelta)
 
 	for i := band.start; i < band.end; i++ {
-		fr := FREQ_RANGE[i]
-		bits := bandbits * fr
+		fr := int32(FREQ_RANGE[i])
+		bits := int32(bandbits) * fr
 		if remaining > 0 {
-			if remaining < fr {
-				bits += remaining
+			if remaining < int(fr) {
+				bits += int32(remaining)
 				remaining = 0
 			} else {
 				bits += fr
-				remaining -= fr
+				remaining -= int(fr)
 			}
 		}
 		d.pulses[i] += bits
 	}
-
-	extrabits := 0
+	var FINE_OFFSET int32 = 21
+	var extrabits int32 = 0
 	for i := band.start; i < band.end; i++ {
 		n := FREQ_RANGE[i] << d.lm
 		prevExtra := extrabits
-		d.pulses[i] += extrabits
+		d.pulses[i] += int32(extrabits)
 
 		if n > 1 {
-			extrabits = d.pulses[i] - caps[i]
+			extrabits = (d.pulses[i] - caps[i])
 			if extrabits < 0 {
 				extrabits = 0
 			}
-			d.pulses[i] -= extrabits
+			d.pulses[i] -= int32(extrabits)
 
 			dof := n
 			if d.stereo_pkt {
@@ -1370,22 +1371,22 @@ bandsLoop:
 			}
 
 			duration := d.lm << 3
-			dofChannels := dof * (LOG_FREQ_RANGE[i] + duration)
-			offset := (dofChannels >> 1) - dof*FINE_OFFSET
+			dofChannels := int32(dof) * int32(int(LOG_FREQ_RANGE[i])+duration)
+			offset := (dofChannels >> 1) - int32(dof)*FINE_OFFSET
 
 			if n == 2 {
-				offset += dof * 2
+				offset += int32(dof) * 2
 			}
 
 			pulse := d.pulses[i] + offset
-			if pulse < 2*(dof<<3) {
+			if pulse < int32(2*(dof<<3)) {
 				offset += dofChannels >> 2
-			} else if pulse < 3*(dof<<3) {
+			} else if pulse < int32(3*(dof<<3)) {
 				offset += dofChannels >> 3
 			}
 
 			pulse = d.pulses[i] + offset
-			fineBits := (pulse + (dof << 2)) / (dof << 3)
+			fineBits := (pulse + int32(dof<<2)) / int32(dof<<3)
 			maxBits := d.pulses[i] >> 3
 			if d.stereo_pkt {
 				maxBits >>= 1
@@ -1399,11 +1400,11 @@ bandsLoop:
 				fineBits = maxBits
 			}
 			d.fine_bits[i] = fineBits
-			d.fine_priority[i] = fineBits*(dof<<3) >= pulse
+			d.fine_priority[i] = fineBits*int32(dof<<3) >= pulse
 
 			d.pulses[i] -= fineBits << boolToInt(d.stereo_pkt) << 3
 		} else {
-			extrabits = d.pulses[i] - boolToInt(d.stereo_pkt)*8 - 8
+			extrabits = d.pulses[i] - int32(boolToInt(d.stereo_pkt))*8 - 8
 			if extrabits < 0 {
 				extrabits = 0
 			}
@@ -1445,10 +1446,10 @@ func (c *Celt) DecodeFineEnergy(rd *comm.RangeDecoder, bandStart, bandEnd int) {
 
 		for f := 0; f <= boolToInt(c.stereo_pkt); f++ {
 			frame := &c.frames[f]
-			q2 := float32(rd.RawBits(fineBits))
+			q2 := float32(rd.RawBits(int(fineBits)))
 			fmt.Printf("-- fine_bits %d\n", fineBits)
 
-			offset := (q2+0.5)*float32(1<<(14-fineBits))/16384.0 - 0.5
+			offset := (q2+0.5)*float32(int32(1<<(14-fineBits)))/16384.0 - 0.5
 			fmt.Printf("q2 %.6f offset %.6f\n", q2, offset)
 
 			frame.energy[i] += offset
@@ -1483,7 +1484,7 @@ func (c *Celt) ComputeTheta(
 	fill int,
 ) BandInfo {
 	fmt.Printf("band %d\n", band)
-	pulseCap := LOG_FREQ_RANGE[band] + lm*8
+	pulseCap := int(LOG_FREQ_RANGE[band]) + lm*8
 	offset := pulseCap / 2
 	if dualstereo && n == 2 {
 		offset -= QTHETA_OFFSET_TWOPHASE
@@ -1553,10 +1554,10 @@ func (c *Celt) ComputeTheta(
 		newFill = fill & (((1 << blocks) - 1) << blocks)
 		delta = 16384
 	default:
-		imid = int(bitexactCos(int16(itheta)))
-		iside = int(bitexactCos(int16(16384 - itheta)))
-		log2tan := bitexactLog2tan(int16(iside), int16(imid))
-		delta = int(bitexactFracMul16(int16((n-1)<<7), int16(log2tan)))
+		imid = int(bitexact.Cos(int16(itheta)))
+		iside = int(bitexact.Cos(int16(16384 - itheta)))
+		log2tan := bitexact.Log2tan(int32(iside), int32(imid))
+		delta = int(bitexact.Frac_mul16(int16((n-1)<<7), int16(log2tan)))
 	}
 
 	return BandInfo{
@@ -1679,9 +1680,9 @@ func (c *Celt) DecodeBand(
 		copy(lowbandCopy, lowband[:n])
 	}
 
-	recombine := 0
+	var recombine int32 = 0
 	if !dualstereo && level == 0 {
-		tfChange := c.tf_change[band]
+		tfChange := int32(c.tf_change[band])
 		if tfChange < 0 {
 			recombine = 0
 		} else {
@@ -1697,7 +1698,7 @@ func (c *Celt) DecodeBand(
 			}
 		}
 
-		for k := 0; k < recombine; k++ {
+		for k := 0; k < int(recombine); k++ {
 			if lowbandCopy != nil {
 				haar1(lowbandCopy, n>>k, 1<<k)
 			}
@@ -1775,7 +1776,7 @@ func (c *Celt) DecodeBand(
 			fill,
 		)
 		itheta := info.Itheta
-		inv := info.Inv
+		//inv := info.Inv
 		mid := info.Mid
 		side := info.Side
 		delta := info.Delta
@@ -1795,7 +1796,7 @@ func (c *Celt) DecodeBand(
 			}
 
 			mbits := b - sbits
-			c.remaining2 -= qalloc + sbits
+			c.remaining2 -= int32(qalloc + sbits)
 
 			var midBuf2, sideBuf2 []float32
 			if itheta > 8192 {
@@ -1837,15 +1838,16 @@ func (c *Celt) DecodeBand(
 				if itheta > 8192 {
 					delta -= delta >> (4 - lm)
 				} else {
-					newDelta := delta + (n<<3)>>(5-lm)
+					newDelta := int32(delta) + int32((n<<3)>>(5-lm))
+
 					if newDelta < 0 {
-						delta = newDelta
+						delta = int16(newDelta)
 					}
 				}
 			}
 
 			fmt.Printf("delta %d\n", delta)
-			mbits := (b - delta) / 2
+			mbits := (b - int(delta)) / 2
 			if mbits < 0 {
 				mbits = 0
 			} else if mbits > b {
@@ -1853,7 +1855,7 @@ func (c *Celt) DecodeBand(
 			}
 			sbits := b - mbits
 
-			c.remaining2 -= qalloc
+			c.remaining2 -= int32(qalloc)
 
 			if !dualstereo && lowband != nil {
 				nextLowband2 = lowband[n:]
@@ -1888,9 +1890,10 @@ func (c *Celt) DecodeBand(
 					fill,
 				)
 
-				rebalance = mbits - (rebalance - c.remaining2)
+				rebalance = int32(mbits - int(rebalance-c.remaining2))
 				if rebalance > 3<<3 && itheta != 0 {
-					sbits += rebalance - (3 << 3)
+					sbits += int(rebalance) - (3 << 3)
+
 				}
 
 				sideCM := c.DecodeBand(
@@ -1927,9 +1930,9 @@ func (c *Celt) DecodeBand(
 				)
 				cm = sideCM << sideShift
 
-				rebalance = sbits - (rebalance - c.remaining2)
+				rebalance = int32(int32(sbits) - (rebalance - c.remaining2))
 				if rebalance > 3<<3 && itheta != 16384 {
-					mbits += rebalance - (3 << 3)
+					mbits += int(rebalance - (3 << 3))
 				}
 
 				midCM := c.DecodeBand(
@@ -1966,7 +1969,7 @@ func (c *Celt) DecodeBand(
 
 	if level == 0 {
 		if b0 > 1 {
-			InterleaveHadamard(
+			interleaveHadamard(
 				c.scratch[:],
 				midBuf,
 				nB>>recombine,
@@ -1981,12 +1984,12 @@ func (c *Celt) DecodeBand(
 			blocks >>= 1
 			nB <<= 1
 			cm |= cm >> blocks
-			Haar1(midBuf, nB, blocks)
+			haar1(midBuf, nB, blocks)
 		}
 
-		for k := 0; k < recombine; k++ {
-			cm = BIT_DEINTERLEAVE[cm]
-			Haar1(midBuf, n0>>k, 1<<k)
+		for k := 0; k < int(recombine); k++ {
+			cm = int(BIT_DEINTERLEAVE[cm])
+			haar1(midBuf, n0>>k, 1<<k)
 		}
 
 		blocks <<= recombine
@@ -2030,16 +2033,16 @@ func (c *Celt) DecodeBands(
 		consumed := rd.TellFrac()
 
 		if i != bandStart {
-			c.remaining -= consumed
+			c.remaining -= int32(consumed)
 		}
 
-		c.remaining2 = rd.AvailableFrac() - 1 - c.anticollapse_bit
+		c.remaining2 = int32(rd.AvailableFrac() - 1 - c.anticollapse_bit)
 
 		b := 0
 		if i <= c.codedband-1 {
 			fmt.Printf("rem %d rem2 %d\n", c.remaining, c.remaining2)
-			remaining := c.remaining / min(c.codedband-1, 3)
-			b = min(c.remaining2+1, c.pulses[i]+remaining)
+			remaining := c.remaining / int32(min(c.codedband-1, 3))
+			b = min(int(c.remaining2+1), int(c.pulses[i]+remaining))
 			b = max(0, b)
 			b = min(16383, b)
 		}
@@ -2066,7 +2069,7 @@ func (c *Celt) DecodeBands(
 
 			foldstart := lowbandOffset
 			for j := lowbandOffset - 1; j >= 0; j-- {
-				if FREQ_BANDS[j] <= effectiveLowband {
+				if int(FREQ_BANDS[j]) <= effectiveLowband {
 					foldstart = j
 					break
 				}
@@ -2074,7 +2077,7 @@ func (c *Celt) DecodeBands(
 
 			foldend := lowbandOffset
 			for j := lowbandOffset; j < MAX_BANDS; j++ {
-				if FREQ_BANDS[j] >= effectiveLowband+FREQ_RANGE[i] {
+				if int(FREQ_BANDS[j]) >= effectiveLowband+int(FREQ_RANGE[i]) {
 					foldend = j
 					break
 				}
@@ -2083,7 +2086,7 @@ func (c *Celt) DecodeBands(
 
 			for j := foldstart; j < foldend; j++ {
 				cm[0] |= int(c.frames[0].collapse_masks[j])
-				cm[1] |= int(c.frames[c.stereo_pkt].collapse_masks[j])
+				cm[1] |= int(c.frames[boolToInt(c.stereo_pkt)].collapse_masks[j])
 			}
 		} else {
 			cm[0] = (1 << c.blocks) - 1
@@ -2094,7 +2097,7 @@ func (c *Celt) DecodeBands(
 
 		if c.dual_stereo && i == c.intensity_stereo {
 			c.dual_stereo = false
-			for j := FREQ_BANDS[bandStart] << lm; j < bandOffset; j++ {
+			for j := int32(FREQ_BANDS[bandStart]) << lm; j < int32(bandOffset); j++ {
 				normMid[j] = (normMid[j] + normSide[j]) / 2.0
 			}
 		}
@@ -2173,7 +2176,7 @@ func (c *Celt) DecodeBands(
 		if c.stereo_pkt {
 			c.frames[1].collapse_masks[i] = uint8(cm[1])
 		}
-		c.remaining += int32(c.pulses[i] + consumed)
+		c.remaining += c.pulses[i] + int32(consumed)
 
 		updateLowband = b > int(bandSize<<3)
 	}
